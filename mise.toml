@@ -1,0 +1,33 @@
+[tools]
+bun = "latest"
+rust = "stable"
+"go:github.com/charmbracelet/vhs" = "0.11.0"
+
+[tasks."dev"]
+description = "Start dellij in development mode"
+run = "bun run src/index.ts"
+
+[tasks."ui"]
+description = "Start the TUI in isolation for testing"
+run = "bun run src/index.ts --ui"
+
+[tasks."build:plugin"]
+description = "Build the Zellij WASM plugin"
+run = "cd plugin && ./build.sh"
+
+[tasks."typecheck"]
+description = "Run TypeScript type checking"
+run = "bun tsc --noEmit"
+
+[tasks."record"]
+description = "Record the VHS demo GIF"
+# Pre-initialize the demo config to avoid VHS parser issues
+run = """
+mkdir -p /tmp/dellij-demo/.dellij/status
+echo '{\"projectName\":\"demo\",\"projectRoot\":\"/tmp/dellij-demo\",\"tabs\":[],\"settings\":{\"enabledAgents\":[\"claude\"]}}' > /tmp/dellij-demo/.dellij/dellij.config.json
+vhs vhs/demo.tape
+"""
+
+[tasks."release"]
+description = "Build plugin and typecheck before release"
+depends_on = ["build:plugin", "typecheck"]

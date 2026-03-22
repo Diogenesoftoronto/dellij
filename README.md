@@ -39,6 +39,17 @@ Run `dellij` from your project root:
 bun run src/index.ts
 ```
 
+### Development Tasks
+
+This project uses [mise](https://mise.jdx.sh/) to manage development tasks:
+
+- `mise run build:plugin`: Build the Rust WASM plugin.
+- `mise run dev`: Start dellij in development mode.
+- `mise run ui`: Start the TUI in isolation for testing.
+- `mise run typecheck`: Run TypeScript type checking.
+- `mise run record`: Update the demo GIF using VHS.
+- `mise run release`: Build and typecheck everything.
+
 ## Comparisons with dmux
 
 While `dmux` is a powerful tool for Tmux users, `dellij` takes advantage of Zellij's modern architecture:
