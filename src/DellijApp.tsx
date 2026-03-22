@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import type { DellijConfig, DellijTab } from './types.ts';
 import type { AgentName } from './utils/agentLaunch.ts';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -39,6 +39,12 @@ export function DellijApp({
   controlTabName,
 }: DellijAppProps): React.JSX.Element {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  
+  // Use terminal dimensions, or sensible defaults
+  const terminalWidth = stdout?.columns || 80;
+  const terminalHeight = stdout?.rows || 24;
+
   const { config, tabs, addTab, removeTab, updateTab } = useTabs(
     dellijDir,
     initialConfig,
@@ -336,148 +342,101 @@ export function DellijApp({
 
   const selectedTab = tabs[selectedIndex];
 
+  // Header, Sidebar, Status, Footer are standard parts of the UI.
+  // We'll use a flex column to fill the terminal.
   return (
-    <Box flexDirection="column" width={50}>
-      {/* Header */}
-      <Box borderStyle="single" borderColor="cyan" paddingX={1}>
-        <Text bold color="cyan">
-          dellij
-        </Text>
-        <Text> v1.0.0  </Text>
-        <Text bold>{config.projectName}</Text>
-      </Box>
-
-      {/* Sidebar */}
-      <Box
-        flexDirection="column"
-        borderStyle="single"
-        borderColor="gray"
-        paddingX={1}
-        flexGrow={1}
-      >
-        <Sidebar
-          tabs={tabs}
-          selectedIndex={selectedIndex}
-          statusMap={statusMap}
-        />
-      </Box>
-
-      {/* Status message */}
-      {statusMessage ? (
-        <Box paddingX={1}>
-          <Text color="yellow">{statusMessage}</Text>
+    <Box flexDirection="column" width={terminalWidth} height={terminalHeight}>
+      {/* ── HEADER ── */}
+      <Box borderStyle="single" borderColor="cyan" paddingX={1} flexShrink={0} width="100%">
+        <Box flexGrow={1}>
+          <Text bold color="cyan">dellij </Text>
+          <Text dimColor>v1.0.0 </Text>
+          <Text bold>{config.projectName}</Text>
         </Box>
-      ) : null}
-
-      {/* Footer */}
-      <Box borderStyle="single" borderColor="gray" paddingX={1} flexDirection="column">
-        <Text>
-          <Text color="cyan">[n]</Text>
-          <Text>ew  </Text>
-          <Text color="cyan">[↵]</Text>
-          <Text>go to  </Text>
-          <Text color="cyan">[m]</Text>
-          <Text>erge  </Text>
-          <Text color="cyan">[x]</Text>
-          <Text>close</Text>
-        </Text>
-        <Text>
-          <Text color="cyan">[s]</Text>
-          <Text>hell  </Text>
-          <Text color="cyan">[?]</Text>
-          <Text>help  </Text>
-          <Text color="cyan">[q]</Text>
-          <Text>uit</Text>
-        </Text>
+        {statusMessage ? (
+          <Box paddingX={1}>
+            <Text color="yellow" bold>{statusMessage}</Text>
+          </Box>
+        ) : null}
       </Box>
 
-      {/* Modals */}
-      {modal === 'promptInput' && (
-        <Box position="absolute" marginLeft={2} marginTop={3}>
+      {/* ── MAIN CONTENT (Sidebar or Modals) ── */}
+      <Box 
+        flexDirection="column" 
+        flexGrow={1} 
+        paddingX={1} 
+        paddingY={modal === 'none' ? 0 : 1}
+        borderStyle={modal === 'none' ? undefined : 'round'}
+        borderColor={
+          modal === 'confirmClose' ? 'red' : 
+          modal === 'confirmMerge' ? 'yellow' : 
+          'cyan'
+        }
+      >
+        {modal === 'none' ? (
+          <Sidebar
+            tabs={tabs}
+            selectedIndex={selectedIndex}
+            statusMap={statusMap}
+            terminalWidth={terminalWidth}
+          />
+        ) : modal === 'promptInput' ? (
           <PromptPopup
             onSubmit={handlePromptSubmit}
             onCancel={() => setModal('none')}
           />
-        </Box>
-      )}
-
-      {modal === 'agentSelect' && (
-        <Box position="absolute" marginLeft={2} marginTop={3}>
+        ) : modal === 'agentSelect' ? (
           <AgentSelectPopup
             availableAgents={enabledAgents}
             onSelect={handleAgentSelect}
             onCancel={() => setModal('none')}
           />
-        </Box>
-      )}
+        ) : modal === 'confirmClose' && selectedTab ? (
+          <Box flexDirection="column">
+            <Text bold color="red">Close tab?</Text>
+            <Text>Close <Text bold>{selectedTab.slug}</Text>? [y/N]</Text>
+          </Box>
+        ) : modal === 'confirmMerge' && selectedTab ? (
+          <Box flexDirection="column">
+            <Text bold color="yellow">Merge worktree?</Text>
+            <Text>Merge <Text bold>{selectedTab.slug}</Text> into base branch? [y/N]</Text>
+          </Box>
+        ) : modal === 'help' ? (
+          <Box flexDirection="column">
+            <Text bold color="cyan">dellij Help</Text>
+            <Text> </Text>
+            <Box flexDirection="row">
+              <Box flexDirection="column" marginRight={4}>
+                <Text><Text color="cyan">n</Text>       New agent tab</Text>
+                <Text><Text color="cyan">Enter</Text>   Go to selected tab</Text>
+                <Text><Text color="cyan">↑/↓ k/j</Text> Navigate list</Text>
+                <Text><Text color="cyan">x</Text>       Close selected tab</Text>
+              </Box>
+              <Box flexDirection="column">
+                <Text><Text color="cyan">m</Text>       Merge worktree</Text>
+                <Text><Text color="cyan">s</Text>       New shell tab</Text>
+                <Text><Text color="cyan">q</Text>       Quit dellij TUI</Text>
+                <Text><Text color="cyan">?</Text>       Show this help</Text>
+              </Box>
+            </Box>
+            <Text> </Text>
+            <Text dimColor>[Enter/Esc] close help</Text>
+          </Box>
+        ) : null}
+      </Box>
 
-      {modal === 'confirmClose' && selectedTab && (
-        <Box
-          position="absolute"
-          marginLeft={2}
-          marginTop={3}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor="red"
-          paddingX={2}
-          paddingY={1}
-        >
-          <Text bold color="red">
-            Close tab?
-          </Text>
+      {/* ── FOOTER ── */}
+      <Box borderStyle="single" borderColor="gray" paddingX={1} flexDirection="row" flexShrink={0} width="100%">
+        <Box flexGrow={1}>
           <Text>
-            Close <Text bold>{selectedTab.slug}</Text>? [y/N]
+            <Text color="cyan">[n]</Text>ew  <Text color="cyan">[↵]</Text>go  <Text color="cyan">[m]</Text>erge  <Text color="cyan">[x]</Text>close  <Text color="cyan">[s]</Text>hell  <Text color="cyan">[?]</Text>help  <Text color="cyan">[q]</Text>uit
           </Text>
         </Box>
-      )}
-
-      {modal === 'confirmMerge' && selectedTab && (
-        <Box
-          position="absolute"
-          marginLeft={2}
-          marginTop={3}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor="yellow"
-          paddingX={2}
-          paddingY={1}
-        >
-          <Text bold color="yellow">
-            Merge worktree?
-          </Text>
-          <Text>
-            Merge <Text bold>{selectedTab.slug}</Text> into base branch? [y/N]
-          </Text>
+        <Box>
+          <Text dimColor>Zellij Session: </Text>
+          <Text color="cyan">{sessionName}</Text>
         </Box>
-      )}
-
-      {modal === 'help' && (
-        <Box
-          position="absolute"
-          marginLeft={2}
-          marginTop={3}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor="cyan"
-          paddingX={2}
-          paddingY={1}
-        >
-          <Text bold color="cyan">
-            dellij Help
-          </Text>
-          <Text> </Text>
-          <Text><Text color="cyan">n</Text>       New agent tab</Text>
-          <Text><Text color="cyan">Enter</Text>   Navigate to selected tab</Text>
-          <Text><Text color="cyan">↑/↓ k/j</Text> Navigate list</Text>
-          <Text><Text color="cyan">x</Text>       Close selected tab</Text>
-          <Text><Text color="cyan">m</Text>       Merge selected worktree</Text>
-          <Text><Text color="cyan">s</Text>       New shell tab</Text>
-          <Text><Text color="cyan">q</Text>       Quit dellij TUI</Text>
-          <Text><Text color="cyan">?</Text>       Show this help</Text>
-          <Text> </Text>
-          <Text dimColor>[Enter/Esc] close help</Text>
-        </Box>
-      )}
+      </Box>
     </Box>
   );
 }

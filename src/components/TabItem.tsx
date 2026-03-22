@@ -39,47 +39,57 @@ function statusLabel(status: AgentStatus | undefined): string {
       return 'error';
     case 'done':
       return 'done';
-    case 'idle':
-    default:
-      return 'idle';
-  }
-}
+    interface TabItemProps {
+      tab: DellijTab;
+      isSelected: boolean;
+      statusOverride?: AgentStatus;
+      terminalWidth?: number;
+    }
+    ...
+    export function TabItem({
+      tab,
+      isSelected,
+      statusOverride,
+      terminalWidth = 80,
+    }: TabItemProps): React.JSX.Element {
+      const agentLabel =
+        tab.agent && isAgentName(tab.agent) && AGENT_REGISTRY[tab.agent]
+          ? AGENT_REGISTRY[tab.agent].shortLabel
+          : tab.type === 'shell'
+            ? 'sh'
+            : '??';
 
-export function TabItem({
-  tab,
-  isSelected,
-  statusOverride,
-}: TabItemProps): React.JSX.Element {
-  const agentLabel =
-    tab.agent && isAgentName(tab.agent) && AGENT_REGISTRY[tab.agent]
-      ? AGENT_REGISTRY[tab.agent].shortLabel
-      : tab.type === 'shell'
-        ? 'sh'
-        : '??';
+      const effectiveStatus = statusOverride ?? tab.agentStatus ?? 'idle';
+      const color = statusColor(effectiveStatus);
+      const label = statusLabel(effectiveStatus);
 
-  const effectiveStatus = statusOverride ?? tab.agentStatus ?? 'idle';
-  const color = statusColor(effectiveStatus);
-  const label = statusLabel(effectiveStatus);
+      // Dynamic truncation based on terminal width
+      // [2] indent + [4] "[cc] " + slug + [2] " " + [1] dot + [10] "status"
+      // Let's reserve ~20 chars for the rest of the UI
+      const reservedWidth = 22;
+      const maxSlugLen = Math.max(10, terminalWidth - reservedWidth);
 
-  // Truncate slug if too long
-  const maxSlugLen = 22;
-  const slug =
-    tab.slug.length > maxSlugLen
-      ? tab.slug.slice(0, maxSlugLen - 1) + '…'
-      : tab.slug;
+      const slug =
+        tab.slug.length > maxSlugLen
+          ? tab.slug.slice(0, maxSlugLen - 1) + '…'
+          : tab.slug;
 
-  return (
-    <Box>
-      <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-        {isSelected ? '> ' : '  '}
-        {'['}
-        {agentLabel}
-        {'] '}
-        {slug}
-      </Text>
-      <Text> </Text>
-      <Text color={color}>{'\u25cf'}</Text>
-      <Text color={color}>{label}</Text>
-    </Box>
-  );
-}
+      return (
+        <Box width="100%">
+          <Box flexGrow={1}>
+            <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+              {isSelected ? '> ' : '  '}
+              {'['}
+              {agentLabel}
+              {'] '}
+              {slug}
+            </Text>
+          </Box>
+          <Box flexShrink={0} marginLeft={1}>
+            <Text color={color}>{'\u25cf'} </Text>
+            <Text color={color}>{label}</Text>
+          </Box>
+        </Box>
+      );
+    }
+

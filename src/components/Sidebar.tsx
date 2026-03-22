@@ -7,12 +7,14 @@ interface SidebarProps {
   tabs: DellijTab[];
   selectedIndex: number;
   statusMap: Record<string, AgentStatus>;
+  terminalWidth?: number;
 }
 
 export function Sidebar({
   tabs,
   selectedIndex,
   statusMap,
+  terminalWidth,
 }: SidebarProps): React.JSX.Element {
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -35,6 +37,7 @@ export function Sidebar({
             tab={tab}
             isSelected={idx === selectedIndex}
             statusOverride={statusMap[tab.slug]}
+            terminalWidth={terminalWidth}
           />
         ))
       )}
