@@ -7,6 +7,7 @@ interface TabItemProps {
   tab: DellijTab;
   isSelected: boolean;
   statusOverride?: AgentStatus;
+  terminalWidth?: number;
 }
 
 function statusColor(status: AgentStatus | undefined): string {
@@ -39,57 +40,55 @@ function statusLabel(status: AgentStatus | undefined): string {
       return 'error';
     case 'done':
       return 'done';
-    interface TabItemProps {
-      tab: DellijTab;
-      isSelected: boolean;
-      statusOverride?: AgentStatus;
-      terminalWidth?: number;
-    }
-    ...
-    export function TabItem({
-      tab,
-      isSelected,
-      statusOverride,
-      terminalWidth = 80,
-    }: TabItemProps): React.JSX.Element {
-      const agentLabel =
-        tab.agent && isAgentName(tab.agent) && AGENT_REGISTRY[tab.agent]
-          ? AGENT_REGISTRY[tab.agent].shortLabel
-          : tab.type === 'shell'
-            ? 'sh'
-            : '??';
+    case 'idle':
+    default:
+      return 'idle';
+  }
+}
 
-      const effectiveStatus = statusOverride ?? tab.agentStatus ?? 'idle';
-      const color = statusColor(effectiveStatus);
-      const label = statusLabel(effectiveStatus);
+export function TabItem({
+  tab,
+  isSelected,
+  statusOverride,
+  terminalWidth = 80,
+}: TabItemProps): React.JSX.Element {
+  const agentLabel =
+    tab.agent && isAgentName(tab.agent) && AGENT_REGISTRY[tab.agent]
+      ? AGENT_REGISTRY[tab.agent].shortLabel
+      : tab.type === 'shell'
+        ? 'sh'
+        : '??';
 
-      // Dynamic truncation based on terminal width
-      // [2] indent + [4] "[cc] " + slug + [2] " " + [1] dot + [10] "status"
-      // Let's reserve ~20 chars for the rest of the UI
-      const reservedWidth = 22;
-      const maxSlugLen = Math.max(10, terminalWidth - reservedWidth);
+  const effectiveStatus = statusOverride ?? tab.agentStatus ?? 'idle';
+  const color = statusColor(effectiveStatus);
+  const label = statusLabel(effectiveStatus);
 
-      const slug =
-        tab.slug.length > maxSlugLen
-          ? tab.slug.slice(0, maxSlugLen - 1) + '…'
-          : tab.slug;
+  // Dynamic truncation based on terminal width
+  // [2] indent + [4] "[cc] " + slug + [2] " " + [1] dot + [10] "status"
+  // Let's reserve ~20 chars for the rest of the UI
+  const reservedWidth = 22;
+  const maxSlugLen = Math.max(10, terminalWidth - reservedWidth);
 
-      return (
-        <Box width="100%">
-          <Box flexGrow={1}>
-            <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-              {isSelected ? '> ' : '  '}
-              {'['}
-              {agentLabel}
-              {'] '}
-              {slug}
-            </Text>
-          </Box>
-          <Box flexShrink={0} marginLeft={1}>
-            <Text color={color}>{'\u25cf'} </Text>
-            <Text color={color}>{label}</Text>
-          </Box>
-        </Box>
-      );
-    }
+  const slug =
+    tab.slug.length > maxSlugLen
+      ? tab.slug.slice(0, maxSlugLen - 1) + '…'
+      : tab.slug;
 
+  return (
+    <Box width="100%">
+      <Box flexGrow={1}>
+        <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+          {isSelected ? '> ' : '  '}
+          {'['}
+          {agentLabel}
+          {'] '}
+          {slug}
+        </Text>
+      </Box>
+      <Box flexShrink={0} marginLeft={1}>
+        <Text color={color}>{'\u25cf'} </Text>
+        <Text color={color}>{label}</Text>
+      </Box>
+    </Box>
+  );
+}

@@ -101,7 +101,11 @@ export class ZellijService {
         RetryStrategy.IDEMPOTENT
       );
       return parseSessions(output);
-    } catch {
+    } catch (err) {
+      const message = String(err).toLowerCase();
+      if (message.includes('no active session') || message.includes('no session found')) {
+        return [];
+      }
       return [];
     }
   }

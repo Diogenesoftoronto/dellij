@@ -109,6 +109,7 @@ export function parseTabNames(output: string): string[] {
 export function parseSessions(output: string): string[] {
   return output
     .split('\n')
+    .filter((line) => !line.includes('(EXITED)'))
     .map((line) =>
       line
         // Strip ANSI escape sequences

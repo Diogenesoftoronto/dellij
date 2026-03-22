@@ -120,8 +120,9 @@ async function main(): Promise<void> {
 
   const srcDir = import.meta.dir;
   const distIndexPath = join(srcDir, 'index.ts');
-  const pluginWasmPath = join(srcDir, '..', 'plugin', 'target', 'wasm32-wasi', 'release', 'dellij_status.wasm');
-  const pluginPath = existsSync(pluginWasmPath) ? pluginWasmPath : undefined;
+  const pluginWasmPathP1 = join(srcDir, '..', 'plugin', 'target', 'wasm32-wasip1', 'release', 'dellij_status.wasm');
+  const pluginWasmPathWasi = join(srcDir, '..', 'plugin', 'target', 'wasm32-wasi', 'release', 'dellij_status.wasm');
+  const pluginPath = existsSync(pluginWasmPathP1) ? pluginWasmPathP1 : (existsSync(pluginWasmPathWasi) ? pluginWasmPathWasi : undefined);
 
   const layoutKdl = generateLayoutKdl({
     distIndexPath,
