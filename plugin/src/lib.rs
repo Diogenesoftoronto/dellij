@@ -4,11 +4,13 @@ use std::path::Path;
 
 use serde::Deserialize;
 use zellij_tile::prelude::*;
+use zellij_tile::ui_components::{print_ribbon, Text};
 
 #[derive(Default)]
 struct DellijStatusPlugin {
     agents: Vec<AgentInfo>,
     config_dir: String,
+    #[allow(dead_code)]
     tick: u64,
     active_tab: Option<String>,
 }
@@ -23,8 +25,11 @@ struct AgentInfo {
 #[derive(Debug, Deserialize)]
 struct StatusFile {
     status: String,
+    #[allow(dead_code)]
     slug: Option<String>,
 }
+
+register_plugin!(DellijStatusPlugin);
 
 impl ZellijPlugin for DellijStatusPlugin {
     fn load(&mut self, configuration: BTreeMap<String, String>) {
@@ -33,16 +38,14 @@ impl ZellijPlugin for DellijStatusPlugin {
             .cloned()
             .unwrap_or_default();
 
-        request_permission(&[
-            PermissionType::ReadApplicationState,
-        ]);
+        request_permission(&[PermissionType::ReadApplicationState]);
 
         subscribe(&[
             EventType::Timer,
             EventType::TabUpdate,
             EventType::PermissionRequestResult,
         ]);
-        
+
         set_timeout(2.0);
     }
 
@@ -54,7 +57,7 @@ impl ZellijPlugin for DellijStatusPlugin {
                 self.tick += 1;
                 self.agents = self.read_status_files();
                 should_render = true;
-            },
+            }
             Event::TabUpdate(tab_infos) => {
                 for tab in tab_infos {
                     if tab.active {
@@ -63,72 +66,76 @@ impl ZellijPlugin for DellijStatusPlugin {
                         break;
                     }
                 }
-            },
+            }
             Event::PermissionRequestResult(status) => {
                 if status == PermissionStatus::Granted {
                     should_render = true;
                 }
-            },
+            }
             _ => {}
         }
         should_render
     }
 
-    fn render(&mut self, _rows: usize, cols: usize) {
+    fn render(&mut self, _rows: usize, _cols: usize) {
         if self.config_dir.is_empty() {
-            print!("dellij: no config_dir configured");
+            println!("dellij: no config_dir configured");
             return;
         }
 
         let agent_count = self.agents.len();
-
         if agent_count == 0 {
-            print!("dellij: no agents running");
             return;
         }
 
-        let summary: Vec<String> = self
-            .agents
-            .iter()
-            .map(|a| {
-                let is_active = match &self.active_tab {
-                    Some(t) if t == &a.slug => true,
-                    _ => false,
-                };
+        let mut combined_text = String::new();
+        combined_text.push_str(" dellij ");
+        
+        // Tracking byte ranges for colors
+        // Format: (index_level, start_byte, end_byte)
+        let mut styling = vec![(2, 0, 8)]; // Brand in Green/Cyan
 
-                let status_indicator = match a.status.as_str() {
-                    "working" => "\x1b[33m●\x1b[0m",   // yellow
-                    "waiting" => "\x1b[36m●\x1b[0m",   // cyan
-                    "error" => "\x1b[31m●\x1b[0m",     // red
-                    "done" => "\x1b[32m●\x1b[0m",      // green (done)
-                    _ => "\x1b[32m●\x1b[0m",            // green (idle)
-                };
+        let mut current_pos = 8;
+        for agent in &self.agents {
+            let is_active = self.active_tab.as_ref() == Some(&agent.slug);
+            let status_idx = status_to_index(&agent.status);
 
-                if is_active {
-                    // White background, black text for active tab
-                    format!("\x1b[47;30m {}:{} \x1b[0m", a.short_label, status_indicator)
-                } else {
-                    format!("{}:{}", a.short_label, status_indicator)
-                }
-            })
-            .collect();
+            let segment = format!(" {} ● {} ", agent.short_label, agent.status);
+            let start = current_pos;
+            let end = current_pos + segment.len();
+            
+            // Base color for the agent segment
+            if is_active {
+                styling.push((0, start, end)); // Active in Primary
+            } else {
+                styling.push((1, start, end)); // Inactive in Secondary
+            }
 
+            // Dot color override
+            // Dot is at space(1) + label(2) + space(1) = 4 bytes from start of segment
+            // Dot "●" is 3 bytes
+            styling.push((status_idx, start + 4, start + 7));
 
-        let line = format!(
-            " \x1b[1;36mdellij\x1b[0m: [{} agent{}]  {}",
-            agent_count,
-            if agent_count == 1 { "" } else { "s" },
-            summary.join("  ")
-        );
+            combined_text.push_str(&segment);
+            current_pos = end;
+        }
 
-        // Truncate to terminal width
-        let display = if line.len() > cols.saturating_sub(1) {
-            line.chars().take(cols.saturating_sub(1)).collect::<String>()
-        } else {
-            line
-        };
+        let mut text_component = Text::new(combined_text);
+        for (idx, start, end) in styling {
+            text_component = text_component.color_range(idx, start..end);
+        }
 
-        print!("{}", display);
+        print_ribbon(text_component);
+    }
+}
+
+fn status_to_index(status: &str) -> usize {
+    match status {
+        "working" => 3,   // Yellow
+        "waiting" => 7,   // Cyan
+        "error" => 4,     // Red
+        "done" => 2,      // Green
+        _ => 2,
     }
 }
 
@@ -169,7 +176,6 @@ impl DellijStatusPlugin {
                 Err(_) => continue,
             };
 
-            // Derive a short label from the slug suffix (last token after last '-')
             let short_label = derive_short_label(&slug);
 
             agents.push(AgentInfo {
@@ -179,16 +185,11 @@ impl DellijStatusPlugin {
             });
         }
 
-        // Sort by slug for stable display order
         agents.sort_by(|a, b| a.slug.cmp(&b.slug));
-
         agents
     }
 }
 
-/// Derive a 2-char short label from a slug.
-/// The slug format is "{words}-{agent-suffix}" e.g. "fix-auth-claude-code".
-/// We try to match known agent suffixes, falling back to first 2 chars.
 fn derive_short_label(slug: &str) -> String {
     let known_suffixes: &[(&str, &str)] = &[
         ("claude-code", "cc"),
@@ -211,8 +212,5 @@ fn derive_short_label(slug: &str) -> String {
         }
     }
 
-    // Fall back to first 2 chars of slug
     slug.chars().take(2).collect()
 }
-
-register_plugin!(DellijStatusPlugin);
