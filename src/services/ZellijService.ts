@@ -115,6 +115,23 @@ export class ZellijService {
     return sessions.includes(name);
   }
 
+  async hasExitedSession(name: string): Promise<boolean> {
+    try {
+      const output = await this.exec('zellij list-sessions --no-formatting 2>/dev/null || zellij list-sessions 2>/dev/null');
+      return output.includes(`${name}`) && output.includes('(EXITED)');
+    } catch {
+      return false;
+    }
+  }
+
+  async deleteSession(name: string): Promise<void> {
+    try {
+      await this.exec(`zellij delete-session ${name}`);
+    } catch {
+      // Best effort
+    }
+  }
+
   isInsideZellij(): boolean {
     return !!process.env['ZELLIJ'];
   }

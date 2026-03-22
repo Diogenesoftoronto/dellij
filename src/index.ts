@@ -115,10 +115,16 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Best-effort: try to delete session if it exists but is exited
+  if (await zellijService.hasExitedSession(sessionName)) {
+    console.log(`Cleaning up exited session: ${sessionName}`);
+    await zellijService.deleteSession(sessionName);
+  }
+
   // Create a new session with layout
   console.log(`Creating dellij session: ${sessionName} for ${projectName}`);
 
-  const srcDir = import.meta.dir;
+  const srcDir = import.meta.dir ?? join(process.cwd(), 'src');
   const distIndexPath = join(srcDir, 'index.ts');
   const pluginWasmPathP1 = join(srcDir, '..', 'plugin', 'target', 'wasm32-wasip1', 'release', 'dellij_status.wasm');
   const pluginWasmPathWasi = join(srcDir, '..', 'plugin', 'target', 'wasm32-wasi', 'release', 'dellij_status.wasm');
@@ -135,6 +141,7 @@ async function main(): Promise<void> {
 
   try {
     const { execFileSync } = await import('child_process');
+    
     execFileSync(
       'zellij',
       ['--session', sessionName, '--layout', layoutFile],
