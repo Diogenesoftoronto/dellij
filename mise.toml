@@ -30,4 +30,4 @@ vhs vhs/demo.tape
 
 [tasks."release"]
 description = "Build plugin and typecheck before release"
-depends_on = ["build:plugin", "typecheck"]
+depends = ["build:plugin", "typecheck"]

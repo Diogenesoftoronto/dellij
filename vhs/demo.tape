@@ -1,5 +1,5 @@
 # VHS tape for dellij demo
-Output dellij/vhs/demo.gif
+Output vhs/demo.gif
 
 Set Shell "bash"
 Set FontSize 18
