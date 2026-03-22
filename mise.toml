@@ -20,12 +20,28 @@ description = "Run TypeScript type checking"
 run = "bun tsc --noEmit"
 
 [tasks."record"]
-description = "Record the VHS demo GIF"
-# Pre-initialize the demo config to avoid VHS parser issues
+description = "Record all VHS demo GIFs"
 run = """
+# Setup main demo
 mkdir -p /tmp/dellij-demo/.dellij/status
 echo '{\"projectName\":\"demo\",\"projectRoot\":\"/tmp/dellij-demo\",\"tabs\":[],\"settings\":{\"enabledAgents\":[\"claude\"]}}' > /tmp/dellij-demo/.dellij/dellij.config.json
 vhs vhs/demo.tape
+
+# Setup hooks demo
+mkdir -p /tmp/dellij-hooks-demo/.dellij/hooks
+echo '#!/usr/bin/env bash\necho \"HOOK TRIGGERED\"' > /tmp/dellij-hooks-demo/.dellij/hooks/worktree_created
+chmod +x /tmp/dellij-hooks-demo/.dellij/hooks/worktree_created
+echo '{\"projectName\":\"hooks-demo\",\"projectRoot\":\"/tmp/dellij-hooks-demo\",\"tabs\":[],\"settings\":{\"enabledAgents\":[\"claude\"]}}' > /tmp/dellij-hooks-demo/.dellij/dellij.config.json
+vhs vhs/hooks.tape
+
+# Setup merge demo
+mkdir -p /tmp/dellij-merge-demo/.dellij/status
+echo '{\"projectName\":\"merge-demo\",\"projectRoot\":\"/tmp/dellij-merge-demo\",\"tabs\":[{\"id\":\"1\",\"slug\":\"fix-bug\",\"type\":\"agent\",\"agent\":\"claude\",\"agentStatus\":\"done\",\"worktreePath\":\"/tmp/dellij-merge-demo/worktrees/fix-bug\",\"branchName\":\"fix-bug\"}],\"settings\":{\"enabledAgents\":[\"claude\"]}}' > /tmp/dellij-merge-demo/.dellij/dellij.config.json
+mkdir -p /tmp/dellij-merge-demo/worktrees/fix-bug
+vhs vhs/merge.tape
+
+# Cleanup
+rm -rf /tmp/dellij-demo /tmp/dellij-hooks-demo /tmp/dellij-merge-demo
 """
 
 [tasks."release"]
