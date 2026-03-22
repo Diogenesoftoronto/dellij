@@ -1,0 +1,9 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" rx="40" fill="#0D0D0D"/>
+  <!-- Stylized Lightning Bolt / Agent Prompt -->
+  <path d="M150 50 L250 180 L180 180 L250 350 L150 220 L220 220 Z" fill="#00FFFF" filter="drop-shadow(0 0 10px #00FFFF77)"/>
+  <!-- Terminal Bracket -->
+  <path d="M110 130 L70 180 L110 230" stroke="#FFFFFF" stroke-width="20" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Text Label -->
+  <text x="200" y="380" font-family="monospace" font-size="40" font-weight="bold" fill="#00FFFF" text-anchor="middle">dellij</text>
+</svg>

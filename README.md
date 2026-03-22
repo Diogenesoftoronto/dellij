@@ -1,6 +1,11 @@
 # dellij ⚡
 
-**dellij** is a modern terminal workspace manager built exclusively for **Zellij**. It allows you to manage parallel development workflows using AI coding agents, leveraging native Zellij features like WASM plugins and KDL layouts.
+<p align="center">
+  <img src="./logo.svg" width="200" alt="dellij logo" />
+</p>
+
+**dellij** is a modern terminal workspace manager built exclusively for **Zellij**.
+ It allows you to manage parallel development workflows using AI coding agents, leveraging native Zellij features like WASM plugins and KDL layouts.
 
 [https://github.com/Diogenesoftoronto/dellij](https://github.com/Diogenesoftoronto/dellij)
 
