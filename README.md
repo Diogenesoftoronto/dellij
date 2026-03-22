@@ -2,6 +2,8 @@
 
 **dellij** is a modern terminal workspace manager built exclusively for **Zellij**. It allows you to manage parallel development workflows using AI coding agents, leveraging native Zellij features like WASM plugins and KDL layouts.
 
+[https://github.com/Diogenesoftoronto/dellij](https://github.com/Diogenesoftoronto/dellij)
+
 Inspired by [dmux](https://github.com/formkit/dmux), but re-imagined for the next generation of terminal multiplexers.
 
 ![dellij demo](./vhs/demo.gif)
