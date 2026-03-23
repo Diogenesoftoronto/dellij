@@ -45,7 +45,12 @@ Seamlessly manage git worktrees and merge them back to your base branch directly
    cd dellij
    bun install
    ```
-3. Build the plugin:
+3. Install the CLI onto your `PATH`:
+   ```bash
+   bun link
+   command -v dellij
+   ```
+4. Build the plugin:
    ```bash
    cd plugin
    ./build.sh
@@ -55,8 +60,11 @@ Seamlessly manage git worktrees and merge them back to your base branch directly
 
 Run `dellij` from your project root:
 ```bash
-bun run src/index.ts
+dellij doctor
+dellij
 ```
+
+For a fuller walkthrough, see [GUIDE.md](./GUIDE.md).
 
 ### Development Tasks
 

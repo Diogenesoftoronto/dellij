@@ -38,6 +38,9 @@ impl ZellijPlugin for DellijStatusPlugin {
             .cloned()
             .unwrap_or_default();
 
+        // This plugin is only a status ribbon; it should never take keyboard focus.
+        set_selectable(false);
+
         request_permission(&[PermissionType::ReadApplicationState]);
 
         subscribe(&[
@@ -90,7 +93,7 @@ impl ZellijPlugin for DellijStatusPlugin {
 
         let mut combined_text = String::new();
         combined_text.push_str(" dellij ");
-        
+
         // Tracking byte ranges for colors
         // Format: (index_level, start_byte, end_byte)
         let mut styling = vec![(2, 0, 8)]; // Brand in Green/Cyan
@@ -103,7 +106,7 @@ impl ZellijPlugin for DellijStatusPlugin {
             let segment = format!(" {} ● {} ", agent.short_label, agent.status);
             let start = current_pos;
             let end = current_pos + segment.len();
-            
+
             // Base color for the agent segment
             if is_active {
                 styling.push((0, start, end)); // Active in Primary
@@ -131,10 +134,10 @@ impl ZellijPlugin for DellijStatusPlugin {
 
 fn status_to_index(status: &str) -> usize {
     match status {
-        "working" => 3,   // Yellow
-        "waiting" => 7,   // Cyan
-        "error" => 4,     // Red
-        "done" => 2,      // Green
+        "working" => 3, // Yellow
+        "waiting" => 7, // Cyan
+        "error" => 4,   // Red
+        "done" => 2,    // Green
         _ => 2,
     }
 }

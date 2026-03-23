@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { exec as execCb } from 'child_process';
 import { promisify } from 'util';
@@ -86,6 +86,116 @@ export function writeLayoutFile(layoutContent: string): string {
   const path = join(tmpdir(), `dellij-layout-${Date.now()}.kdl`);
   writeFileSync(path, layoutContent, 'utf8');
   return path;
+}
+
+/**
+ * Returns the locally built status plugin path, preferring the current
+ * wasip1 artifact and falling back to the older wasi target if present.
+ */
+export function findLocalStatusPluginPath(srcDir: string): string | undefined {
+  const pluginWasmPathP1 = join(
+    srcDir,
+    '..',
+    'plugin',
+    'target',
+    'wasm32-wasip1',
+    'release',
+    'dellij_status.wasm',
+  );
+  const pluginWasmPathWasi = join(
+    srcDir,
+    '..',
+    'plugin',
+    'target',
+    'wasm32-wasi',
+    'release',
+    'dellij_status.wasm',
+  );
+
+  if (existsSync(pluginWasmPathP1)) {
+    return pluginWasmPathP1;
+  }
+  if (existsSync(pluginWasmPathWasi)) {
+    return pluginWasmPathWasi;
+  }
+  return undefined;
+}
+
+/**
+ * Zellij currently expects plugin wasm artifacts to expose a WASI `_start`
+ * entrypoint. Some locally built artifacts exist on disk but are still
+ * incompatible with the packaged Zellij runtime, so we guard plugin loading
+ * before adding them to a layout.
+ */
+export function pluginSupportsZellijRuntime(pluginPath: string): boolean {
+  try {
+    const bytes = readFileSync(pluginPath);
+
+    // WebAssembly binary header: magic (4 bytes) + version (4 bytes)
+    if (
+      bytes.length < 8 ||
+      bytes[0] !== 0x00 ||
+      bytes[1] !== 0x61 ||
+      bytes[2] !== 0x73 ||
+      bytes[3] !== 0x6d
+    ) {
+      return false;
+    }
+
+    let offset = 8;
+
+    const readVarUint32 = (): number => {
+      let result = 0;
+      let shift = 0;
+
+      while (offset < bytes.length) {
+        const byte = bytes[offset++];
+        result |= (byte & 0x7f) << shift;
+        if ((byte & 0x80) === 0) {
+          return result >>> 0;
+        }
+        shift += 7;
+      }
+
+      throw new Error('Unexpected end of wasm while reading varuint32');
+    };
+
+    while (offset < bytes.length) {
+      const sectionId = bytes[offset++];
+      const sectionSize = readVarUint32();
+      const sectionEnd = offset + sectionSize;
+
+      if (sectionEnd > bytes.length) {
+        return false;
+      }
+
+      // Export section
+      if (sectionId === 7) {
+        const exportCount = readVarUint32();
+        for (let i = 0; i < exportCount; i++) {
+          const nameLen = readVarUint32();
+          const name = bytes.subarray(offset, offset + nameLen).toString('utf8');
+          offset += nameLen;
+
+          // Skip export kind + index
+          offset += 1;
+          readVarUint32();
+
+          if (name === '_start') {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      offset = sectionEnd;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /**

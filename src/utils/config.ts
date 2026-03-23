@@ -22,12 +22,45 @@ function configPath(dellijDir: string): string {
 }
 
 /**
- * Load config from disk. Throws if the config file does not exist.
+ * Load config from disk and apply environment variable overrides.
  */
 export function loadConfig(dellijDir: string): DellijConfig {
   const filePath = configPath(dellijDir);
-  const raw = readFileSync(filePath, 'utf8');
-  return JSON.parse(raw) as DellijConfig;
+  let config: DellijConfig;
+  
+  if (existsSync(filePath)) {
+    const raw = readFileSync(filePath, 'utf8');
+    config = JSON.parse(raw) as DellijConfig;
+  } else {
+    // Return a dummy config if not found; initConfig will handle real creation
+    config = {
+      projectName: 'unknown',
+      projectRoot: process.cwd(),
+      tabs: [],
+      settings: {},
+    };
+  }
+
+  // Apply environment variable overrides (highest priority)
+  if (process.env['DELLIJ_DEFAULT_AGENT']) {
+    config.settings.defaultAgent = process.env['DELLIJ_DEFAULT_AGENT'];
+  }
+  if (process.env['DELLIJ_ENABLED_AGENTS']) {
+    config.settings.enabledAgents = process.env['DELLIJ_ENABLED_AGENTS']
+      .split(',')
+      .map((s) => s.trim());
+  }
+  if (process.env['DELLIJ_BASE_BRANCH']) {
+    config.settings.baseBranch = process.env['DELLIJ_BASE_BRANCH'];
+  }
+  if (process.env['DELLIJ_BRANCH_PREFIX']) {
+    config.settings.branchPrefix = process.env['DELLIJ_BRANCH_PREFIX'];
+  }
+  if (process.env['DELLIJ_PERMISSION_MODE']) {
+    config.settings.permissionMode = process.env['DELLIJ_PERMISSION_MODE'] as any;
+  }
+
+  return config;
 }
 
 /**
@@ -78,6 +111,10 @@ export function initConfig(
   };
 
   if (!existsSync(configPath(dellijDir))) {
+    // Apply env overrides even during init
+    if (process.env['DELLIJ_DEFAULT_AGENT']) config.settings.defaultAgent = process.env['DELLIJ_DEFAULT_AGENT'];
+    if (process.env['DELLIJ_BASE_BRANCH']) config.settings.baseBranch = process.env['DELLIJ_BASE_BRANCH'];
+    
     writeFileSync(
       configPath(dellijDir),
       JSON.stringify(config, null, 2) + '\n',
