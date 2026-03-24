@@ -12,14 +12,16 @@ use dellij_core::{
     ahead_behind, command_exists, git, git_output, inside_zellij, render_agent_command,
     slugify, write_json, yes_no, Bookmark, Config, LayoutRenderer,
     PipeCommand, StatusFile, Workspace, WorkspaceStatus,
+    convex::ConvexSyncClient,
 };
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     let project_root = dellij_core::git::resolve_project_root(cli.project_root)?;
-    let mut app = App::load_or_init(project_root)?;
+    let mut app = App::load_or_init(project_root).await?;
     app.run(cli.command.unwrap_or(Commands::Open(OpenArgs::default())))
 }
 
@@ -234,10 +236,11 @@ struct App {
     state_dir: Utf8PathBuf,
     config_path: Utf8PathBuf,
     config: Config,
+    convex_client: Option<ConvexSyncClient>,
 }
 
 impl App {
-    fn load_or_init(project_root: Utf8PathBuf) -> Result<Self> {
+    async fn load_or_init(project_root: Utf8PathBuf) -> Result<Self> {
         let state_dir = project_root.join(".dellij");
         for sub in &["hooks", "status", "layouts"] {
             fs::create_dir_all(state_dir.join(sub))
@@ -255,21 +258,31 @@ impl App {
             config
         };
 
-        Ok(Self { project_root, state_dir, config_path, config })
+        let mut convex_client = if let Ok(url) = env::var("CONVEX_URL") {
+            Some(ConvexSyncClient::new(&url).await?)
+        } else {
+            None
+        };
+
+        if let (Some(client), Ok(token)) = (&mut convex_client, env::var("CONVEX_AUTH_TOKEN")) {
+            client.set_auth(Some(token));
+        }
+
+        Ok(Self { project_root, state_dir, config_path, config, convex_client })
     }
 
-    fn run(&mut self, command: Commands) -> Result<()> {
+    async fn run(&mut self, command: Commands) -> Result<()> {
         match command {
-            Commands::Init => self.init(),
-            Commands::Open(args) => self.open(args),
-            Commands::New(args) => self.new_workspace(args),
-            Commands::Import(args) => self.import(args),
+            Commands::Init => self.init().await,
+            Commands::Open(args) => self.open(args).await,
+            Commands::New(args) => self.new_workspace(args).await,
+            Commands::Import(args) => self.import(args).await,
             Commands::List => self.list(),
             Commands::Show(r) => self.show(&r.slug),
             Commands::Run(args) => self.run_in_workspace(args),
             Commands::Send(args) => self.send(args),
             Commands::Bookmark { command } => self.bookmark(command),
-            Commands::Status(args) => self.update_status(args),
+            Commands::Status(args) => self.update_status(args).await,
             Commands::Close(args) => self.close(args),
             Commands::Layout(r) => self.print_layout(&r.slug),
             Commands::Pr { command } => self.pr(command),
@@ -281,7 +294,7 @@ impl App {
 
     // ── init ──────────────────────────────────────────────────────────────────
 
-    fn init(&mut self) -> Result<()> {
+    async fn init(&mut self) -> Result<()> {
         self.ensure_zellij_available()?;
         self.save()?;
         println!("Initialized dellij at {}", self.state_dir);
@@ -293,17 +306,17 @@ impl App {
 
     // ── new ───────────────────────────────────────────────────────────────────
 
-    fn new_workspace(&mut self, args: NewArgs) -> Result<()> {
+    async fn new_workspace(&mut self, args: NewArgs) -> Result<()> {
         self.ensure_zellij_available()?;
         let should_open = args.open;
-        let workspace = self.new_workspace_from_args(args)?;
+        let workspace = self.new_workspace_from_args(args).await?;
         if should_open {
             self.open_workspace_tab(&workspace)?;
         }
         Ok(())
     }
 
-    fn new_workspace_from_args(&mut self, args: NewArgs) -> Result<Workspace> {
+    async fn new_workspace_from_args(&mut self, args: NewArgs) -> Result<Workspace> {
         let agent = args
             .agent
             .unwrap_or_else(|| self.config.settings.default_agent.clone());
@@ -372,10 +385,14 @@ impl App {
             layout: args.layout,
         };
 
-        self.write_status_file(&workspace)?;
+        self.write_status_file(&workspace).await?;
         self.write_layout_file(&workspace)?;
         self.config.workspaces.push(workspace.clone());
         self.save()?;
+
+        if let Some(client) = &mut self.convex_client {
+            let _ = client.push_workspace(&workspace).await;
+        }
 
         if args.setup {
             self.run_hook("workspace_setup", &workspace)?;
@@ -393,7 +410,7 @@ impl App {
 
     // ── import ────────────────────────────────────────────────────────────────
 
-    fn import(&mut self, args: ImportArgs) -> Result<()> {
+    async fn import(&mut self, args: ImportArgs) -> Result<()> {
         let path = args.path.canonicalize_utf8()
             .with_context(|| format!("resolving path {}", args.path))?;
 
@@ -438,10 +455,14 @@ impl App {
             layout: args.layout,
         };
 
-        self.write_status_file(&workspace)?;
+        self.write_status_file(&workspace).await?;
         self.write_layout_file(&workspace)?;
         self.config.workspaces.push(workspace.clone());
         self.save()?;
+
+        if let Some(client) = &mut self.convex_client {
+            let _ = client.push_workspace(&workspace).await;
+        }
 
         println!("Imported workspace {slug}");
         println!("  path   : {path}");
@@ -451,7 +472,7 @@ impl App {
 
     // ── open ──────────────────────────────────────────────────────────────────
 
-    fn open(&mut self, args: OpenArgs) -> Result<()> {
+    async fn open(&mut self, args: OpenArgs) -> Result<()> {
         self.ensure_zellij_available()?;
 
         if args.create {
@@ -470,7 +491,7 @@ impl App {
                     setup: args.setup,
                     open: false,
                 };
-                self.new_workspace_from_args(new_args)?.slug
+                self.new_workspace_from_args(new_args).await?.slug
             };
             return self.open_workspace(&slug);
         }
@@ -617,7 +638,7 @@ impl App {
 
     // ── status ────────────────────────────────────────────────────────────────
 
-    fn update_status(&mut self, args: StatusArgs) -> Result<()> {
+    async fn update_status(&mut self, args: StatusArgs) -> Result<()> {
         let ws = self.workspace_mut(&args.slug)?;
         ws.status = args.state;
         ws.updated_at = Utc::now();
@@ -625,7 +646,7 @@ impl App {
             ws.notes.push(note);
         }
         let snapshot = ws.clone();
-        self.write_status_file(&snapshot)?;
+        self.write_status_file(&snapshot).await?;
         self.save()?;
         println!("{} -> {}", snapshot.slug, snapshot.status);
 
@@ -852,12 +873,17 @@ impl App {
             .with_context(|| format!("workspace '{slug}' not found"))
     }
 
-    fn write_status_file(&self, ws: &Workspace) -> Result<()> {
+    async fn write_status_file(&mut self, ws: &Workspace) -> Result<()> {
         let sf = StatusFile::from_workspace(ws);
         write_json(
             &self.state_dir.join("status").join(format!("{}.json", ws.slug)),
             &sf,
-        )
+        )?;
+
+        if let Some(client) = &mut self.convex_client {
+            let _ = client.push_status(&sf).await;
+        }
+        Ok(())
     }
 
     fn write_layout_file(&self, ws: &Workspace) -> Result<Utf8PathBuf> {

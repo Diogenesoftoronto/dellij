@@ -1,6 +1,7 @@
 pub mod git;
 pub mod layout;
 pub mod types;
+pub mod convex;
 
 pub use git::{git, git_output};
 pub use layout::{BuiltinLayout, LayoutRenderer};

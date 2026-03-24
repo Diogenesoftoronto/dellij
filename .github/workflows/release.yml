@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: dellij-linux
+            asset_name: dellij-linux-x86_64
+          - os: macos-latest
+            artifact_name: dellij-macos
+            asset_name: dellij-macos-universal
+          - os: windows-latest
+            artifact_name: dellij-windows.exe
+            asset_name: dellij-windows-x86_64.exe
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Build
+      run: cargo build --release -p dellij
+
+    - name: Upload Binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: target/release/${{ matrix.artifact_name }}
+
+  release-android:
+    name: Build & Release Android APK
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android
+
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r25c
+
+    - name: Install cargo-apk
+      run: cargo install cargo-apk
+
+    - name: Build APK
+      run: cargo apk build -p dellij-mobile --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: dellij-android-apk
+        path: target/release/apk/dellij-mobile.apk
+
+  publish:
+    name: Create GitHub Release
+    needs: [release, release-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          artifacts/dellij-linux/dellij
+          artifacts/dellij-macos/dellij
+          artifacts/dellij-windows.exe/dellij.exe
+          artifacts/dellij-android-apk/dellij-mobile.apk
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
