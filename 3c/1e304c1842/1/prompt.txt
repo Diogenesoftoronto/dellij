@@ -1,0 +1,28 @@
+One gap remains: this is still orchestrating Zellij through shell calls, not yet through a richer internal
+  control layer, so features like tab deduping/focus-if-open, attention indicators, and more advanced pane
+  targeting are not implemented yet. Those would be the next serious step if you want dellij to feel fully
+  authoritative.
+
+---
+
+create property tests for the application and see if there any features left to implement in superset.sh and cmux or with the https://github.com/zellij-org/awesome-zellij
+
+---
+
+cont
+
+---
+
+i want all the features. i understand that there is stuff that zellij doesn't provide, for that stuff you can use the gpui library from zed and use the zed diffviewer and stuff like that.
+
+---
+
+for the browser you should be able to figure that out
+
+---
+
+nah continue
+
+---
+
+make sure the ui is sexy
