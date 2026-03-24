@@ -1,0 +1,13 @@
+you should be able to figure that all out don't stop until you have finished implementing everything we discussed
+
+---
+
+get those next steps
+
+---
+
+use gh to get release and stuff configure for all platforms also set ci
+
+---
+
+thereadmeshouldremovethevhsandbeupdatedanydocsshouldalsobeupdated

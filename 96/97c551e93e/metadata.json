@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "9697c551e93e",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    "Cargo.toml",
+    "GUIDE.md",
+    "README.md",
+    "build-mobile.sh",
+    "convex/schema.ts",
+    "convex/status.ts",
+    "convex/workspaces.ts",
+    "crates/dellij-core/Cargo.toml",
+    "crates/dellij-core/src/convex.rs",
+    "crates/dellij-core/src/git.rs",
+    "crates/dellij-core/src/lib.rs",
+    "crates/dellij-mobile/Cargo.toml",
+    "crates/dellij-mobile/src/auth.rs",
+    "crates/dellij-mobile/src/main.rs",
+    "crates/dellij/Cargo.toml",
+    "crates/dellij/src/main.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/96/97c551e93e/0/metadata.json",
+      "transcript": "/96/97c551e93e/0/full.jsonl",
+      "content_hash": "/96/97c551e93e/0/content_hash.txt",
+      "prompt": "/96/97c551e93e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5820664,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4929868,
+    "output_tokens": 26482,
+    "api_call_count": 80
+  }
+}

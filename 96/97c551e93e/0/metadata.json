@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "9697c551e93e",
+  "session_id": "09f23ef4-22ce-4132-81cc-b73279426124",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-24T04:28:04.200739471Z",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    "Cargo.toml",
+    "GUIDE.md",
+    "README.md",
+    "build-mobile.sh",
+    "convex/schema.ts",
+    "convex/status.ts",
+    "convex/workspaces.ts",
+    "crates/dellij-core/Cargo.toml",
+    "crates/dellij-core/src/convex.rs",
+    "crates/dellij-core/src/git.rs",
+    "crates/dellij-core/src/lib.rs",
+    "crates/dellij-mobile/Cargo.toml",
+    "crates/dellij-mobile/src/auth.rs",
+    "crates/dellij-mobile/src/main.rs",
+    "crates/dellij/Cargo.toml",
+    "crates/dellij/src/main.rs"
+  ],
+  "agent": "Gemini CLI",
+  "model": "gemini-3-flash-preview",
+  "turn_id": "db2313a96290",
+  "checkpoint_transcript_start": 17,
+  "transcript_lines_at_start": 17,
+  "token_usage": {
+    "input_tokens": 5820664,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 4929868,
+    "output_tokens": 26482,
+    "api_call_count": 80
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-24T04:28:03.790383152Z",
+    "agent_lines": 836,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 836,
+    "agent_percentage": 100
+  }
+}
