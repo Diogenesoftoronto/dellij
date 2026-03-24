@@ -1,0 +1,5 @@
+github oauth
+
+---
+
+i feel like mobile should be able to pick up the work that was going on with a work tree on desktop so that might need shared storage now that i think about it. to solve convex-rs is not a bad lib to use https://github.com/get-convex/convex-rs. 4. oof on the mobile side we can focus on gui management. we exclude stuff that doesn't make sense to really try with a phone ui.

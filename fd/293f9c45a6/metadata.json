@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "fd293f9c45a6",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".claude/settings.json",
+    ".cursor/hooks.json",
+    ".entire/.gitignore",
+    ".entire/settings.json",
+    ".gemini/settings.json",
+    ".gitignore",
+    ".opencode/plugins/entire.ts",
+    "Cargo.lock",
+    "Cargo.toml",
+    "GUIDE.md",
+    "README.md",
+    "crates/dellij-core/Cargo.toml",
+    "crates/dellij-core/src/git.rs",
+    "crates/dellij-core/src/layout.rs",
+    "crates/dellij-core/src/lib.rs",
+    "crates/dellij-core/src/types.rs",
+    "crates/dellij-gui/Cargo.toml",
+    "crates/dellij-gui/src/app.rs",
+    "crates/dellij-gui/src/browser.rs",
+    "crates/dellij-gui/src/colors.rs",
+    "crates/dellij-gui/src/diff_view.rs",
+    "crates/dellij-gui/src/main.rs",
+    "crates/dellij-gui/src/notifications.rs",
+    "crates/dellij-gui/src/sidebar.rs",
+    "crates/dellij-gui/src/watcher.rs",
+    "crates/dellij/Cargo.toml",
+    "crates/dellij/src/main.rs",
+    "dellij",
+    "mise.toml",
+    "plugin/Cargo.toml",
+    "plugin/src/main.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fd/293f9c45a6/0/metadata.json",
+      "transcript": "/fd/293f9c45a6/0/full.jsonl",
+      "content_hash": "/fd/293f9c45a6/0/content_hash.txt",
+      "prompt": "/fd/293f9c45a6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 143772,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 85590,
+    "output_tokens": 3209,
+    "api_call_count": 5
+  }
+}
