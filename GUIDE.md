@@ -48,24 +48,27 @@ in real-time, even across devices when synced via Convex.
 
 ---
 
-## Install
+## Install & Development
+
+Use `mise` to manage the project or install components manually:
 
 ```bash
-# 1. CLI (Tokio-async)
-cargo install --path crates/dellij
+# Setup
+mise run setup          # fetch dependencies
 
-# 2. WASM plugin
-cargo build -p dellij-status --release --target wasm32-wasip1
-cp plugin/target/wasm32-wasip1/release/dellij_status.wasm \
-   ~/.config/zellij/plugins/
+# Components
+mise run build          # build desktop workspace (CLI + GUI)
+mise run build:plugin   # build WASM plugin
+mise run build:mobile   # build Android APK
 
-# 3. GUI (Desktop)
-cargo install --path crates/dellij-gui
+# Quality
+mise run test           # run all unit and property tests
+mise run lint           # check formatting and clippy
+mise run sync           # deploy Convex functions
 
-# 4. Mobile (Android)
-#    Requires cargo-apk: cargo install cargo-apk
-./build-mobile.sh
-adb install target/release/apk/dellij-mobile.apk
+# Running
+mise run dev            # run CLI from source
+mise run release        # optimised release build
 ```
 
 ---

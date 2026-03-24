@@ -132,6 +132,22 @@ dellij workspace
 └── plugin/             # Zellij WASM plugin (status ribbon)
 ```
 
+## Development
+
+Use `mise` to run common tasks:
+
+```bash
+mise run setup          # fetch dependencies
+mise run build          # build desktop workspace
+mise run build:plugin   # build WASM plugin
+mise run build:mobile   # build Android APK
+mise run test           # run all unit and property tests
+mise run lint           # check formatting and clippy
+mise run sync           # deploy Convex functions
+mise run dev            # run CLI from source
+mise run release        # optimised release build
+```
+
 ## License
 
 MIT — see [LICENSE](./LICENSE)

@@ -1,13 +1,12 @@
 [tools]
 rust = "stable"
-"go:github.com/charmbracelet/vhs" = "0.11.0"
 
 [tasks."setup"]
 description = "Fetch Rust dependencies"
 run = "cargo fetch"
 
 [tasks."build"]
-description = "Build the Rust workspace"
+description = "Build the Rust workspace (desktop)"
 depends = ["setup"]
 run = "cargo build --workspace"
 
@@ -15,14 +14,26 @@ run = "cargo build --workspace"
 description = "Build the Zellij WASM plugin"
 run = "cargo build -p dellij-status --release --target wasm32-wasip1"
 
+[tasks."build:mobile"]
+description = "Build the Android APK"
+run = "./build-mobile.sh"
+
+[tasks."test"]
+description = "Run all tests across the workspace"
+run = "cargo test --workspace"
+
+[tasks."lint"]
+description = "Check formatting and run clippy"
+run = "cargo fmt -- --check && cargo clippy --workspace -- -D warnings"
+
+[tasks."sync"]
+description = "Deploy Convex functions"
+run = "npx convex deploy"
+
 [tasks."dev"]
 description = "Run the Rust CLI from source"
 run = "cargo run -p dellij -- list"
 
-[tasks."record"]
-description = "Record all VHS demo GIFs"
-run = "vhs vhs/demo.tape && vhs vhs/hooks.tape && vhs vhs/merge.tape"
-
 [tasks."release"]
-description = "Build and check the Rust workspace before release"
-run = "cargo check --workspace && cargo build --workspace --release"
+description = "Build the Rust workspace in release mode"
+run = "cargo build --workspace --release"
