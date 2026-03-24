@@ -18,11 +18,11 @@ use dellij_core::{
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let project_root = dellij_core::git::resolve_project_root(cli.project_root)?;
     let mut app = App::load_or_init(project_root).await?;
-    app.run(cli.command.unwrap_or(Commands::Open(OpenArgs::default())))
+    app.run(cli.command.unwrap_or(Commands::Open(OpenArgs::default()))).await
 }
 
 #[derive(Debug, Parser)]
@@ -265,7 +265,7 @@ impl App {
         };
 
         if let (Some(client), Ok(token)) = (&mut convex_client, env::var("CONVEX_AUTH_TOKEN")) {
-            client.set_auth(Some(token));
+            client.set_auth(Some(token)).await;
         }
 
         Ok(Self { project_root, state_dir, config_path, config, convex_client })

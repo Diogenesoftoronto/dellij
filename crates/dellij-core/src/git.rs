@@ -77,7 +77,8 @@ pub fn workspace_diff(
     let diff = repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), Some(&mut opts))?;
     
     let mut diff_str = Vec::new();
-    diff.print_patch(|_delta, _hunk, line| {
+    diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        diff_str.push(line.origin() as u8);
         diff_str.extend_from_slice(line.content());
         true
     })?;
@@ -92,4 +93,84 @@ pub fn open_in_editor(editor: &str, path: &Utf8Path) -> Result<()> {
         .spawn()
         .with_context(|| format!("opening {path} in {editor}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use git2::{Repository, Signature};
+
+    fn setup_repo() -> (tempfile::TempDir, Repository) {
+        let dir = tempdir().unwrap();
+        let repo = Repository::init(dir.path()).unwrap();
+        
+        {
+            let mut index = repo.index().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            let sig = Signature::now("Test", "test@example.com").unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[]).unwrap();
+        }
+        
+        (dir, repo)
+    }
+
+    #[test]
+    fn test_detect_base_branch() {
+        let (dir, repo) = setup_repo();
+        let path = Utf8Path::from_path(dir.path()).unwrap();
+        
+        repo.remote("origin", "https://github.com/example/repo").unwrap();
+        repo.reference_symbolic("refs/remotes/origin/HEAD", "refs/remotes/origin/master", true, "mock origin/HEAD").unwrap();
+        repo.reference("refs/remotes/origin/master", repo.head().unwrap().target().unwrap(), true, "mock origin/master").unwrap();
+        
+        let base = detect_base_branch(path).unwrap();
+        assert_eq!(base, "master");
+    }
+
+    #[test]
+    fn test_resolve_project_root() {
+        let (dir, _repo) = setup_repo();
+        let path = Utf8Path::from_path(dir.path()).unwrap();
+        
+        let resolved = resolve_project_root(Some(path.to_path_buf())).unwrap();
+        assert_eq!(resolved, path);
+        
+        let sub = dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        let old_cwd = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&sub).unwrap();
+        
+        let resolved = resolve_project_root(None).unwrap();
+        assert_eq!(resolved.canonicalize().unwrap(), path.canonicalize().unwrap());
+        
+        std::env::set_current_dir(old_cwd).unwrap();
+    }
+
+    #[test]
+    fn test_workspace_diff() {
+        let (dir, repo) = setup_repo();
+        let path = Utf8Path::from_path(dir.path()).unwrap();
+        let sig = Signature::now("Test", "test@example.com").unwrap();
+        
+        let head = repo.head().unwrap();
+        let commit = repo.find_commit(head.target().unwrap()).unwrap();
+        let master_name = repo.head().unwrap().shorthand().unwrap().to_string();
+        
+        repo.branch("feat", &commit, false).unwrap();
+        repo.set_head("refs/heads/feat").unwrap();
+        
+        std::fs::write(dir.path().join("test.txt"), "hello\n").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(std::path::Path::new("test.txt")).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        repo.commit(Some("HEAD"), &sig, &sig, "Add test.txt", &tree, &[&commit]).unwrap();
+        
+        let diff = workspace_diff(path, &master_name, "feat").unwrap();
+        assert!(diff.contains("test.txt"));
+        assert!(diff.contains("+hello"));
+    }
 }

@@ -1,10 +1,18 @@
 use std::collections::BTreeMap;
-use anyhow::{Result, Context};
+use anyhow::Result;
 use convex::{ConvexClient, Value};
 use crate::types::{Workspace, StatusFile};
 
+use std::fmt;
+
 pub struct ConvexSyncClient {
     client: ConvexClient,
+}
+
+impl fmt::Debug for ConvexSyncClient {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ConvexSyncClient").finish()
+    }
 }
 
 impl ConvexSyncClient {
@@ -14,8 +22,8 @@ impl ConvexSyncClient {
         Ok(Self { client })
     }
 
-    pub fn set_auth(&mut self, token: Option<String>) {
-        self.client.set_auth(token);
+    pub async fn set_auth(&mut self, token: Option<String>) {
+        self.client.set_auth(token).await;
     }
 
     pub async fn push_workspace(&mut self, workspace: &Workspace) -> Result<()> {
