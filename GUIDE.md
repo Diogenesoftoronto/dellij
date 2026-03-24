@@ -1,280 +1,561 @@
-# Dellij Guide
+# dellij — complete guide
 
-This guide covers the normal way to use `dellij` in a real project.
+> Terminal-native workspace management for parallel AI coding agents.
 
-## What Dellij Does
+---
 
-`dellij` creates a Zellij session tied to your project, keeps a small project config in `.dellij/`, and can open agent worktrees in dedicated tabs.
+## Table of contents
 
-Outside Zellij:
+1. [Concepts](#concepts)
+2. [Install](#install)
+3. [First run](#first-run)
+4. [Creating workspaces](#creating-workspaces)
+5. [Opening workspaces](#opening-workspaces)
+6. [Workspace status](#workspace-status)
+7. [Layouts](#layouts)
+8. [Bookmarks and run](#bookmarks-and-run)
+9. [Sending text to panes](#sending-text-to-panes)
+10. [GitHub PR integration](#github-pr-integration)
+11. [Hooks](#hooks)
+12. [Agent hook snippets](#agent-hook-snippets)
+13. [Environment variables](#environment-variables)
+14. [Importing existing worktrees](#importing-existing-worktrees)
+15. [The Zellij plugin](#the-zellij-plugin)
+16. [The desktop GUI](#the-desktop-gui)
+17. [IDE deep-linking](#ide-deep-linking)
+18. [Diagnostics](#diagnostics)
+19. [Configuration reference](#configuration-reference)
 
-- `dellij` creates or attaches to the project session.
+---
 
-Inside Zellij:
+## Concepts
 
-- `dellij` renders the control UI in the current pane.
-- `dellij new "prompt"` creates a worktree and opens a new agent tab.
+**Workspace** — one unit of work. Each workspace has:
+- an isolated git worktree on its own branch
+- a Zellij tab with panes pre-configured for the agent command, a shell, and git status
+- `DELLIJ_*` env vars in every pane
+- a status (`working` / `waiting` / `blocked` / `review` / `done` / `error`)
+- optional ports, URLs, PR number, notes
 
-## Prerequisites
+**Project** — a git repo you've run `dellij init` inside. State lives in `.dellij/`.
 
-You need:
+**Plugin** — a Zellij WASM plugin that renders a status ribbon and acts as a pipe controller.
+The CLI can send it commands to focus tabs, dedup opens, and write to panes.
 
-- `zellij`
-- `bun`
-- `git`
-- at least one supported agent CLI if you want agent tabs
+**GUI** — an optional GPUI desktop app (`dellij ui`) with diff viewer, notification panel,
+sidebar, and browser window.
 
-Supported agent IDs include:
+---
 
-- `claude`
-- `opencode`
-- `codex`
-- `cline`
-- `gemini`
-- `qwen`
-- `amp`
-- `pi`
-- `cursor`
-- `copilot`
-- `crush`
-- `aider`
-
-## Install Dellij
-
-Install the CLI so `dellij` is available on your `PATH`:
-
-```bash
-cd /path/to/dellij
-bun install
-bun link
-```
-
-Verify it:
+## Install
 
 ```bash
-command -v dellij
+# 1. CLI
+cargo install --path crates/dellij
+
+# 2. WASM plugin
+cargo build -p dellij-status --release --target wasm32-wasip1
+cp plugin/target/wasm32-wasip1/release/dellij_status.wasm \
+   ~/.config/zellij/plugins/
+
+# 3. GUI (optional)
+#    Linux system deps (Fedora): dnf install vulkan-loader-devel libxkbcommon-devel wayland-devel
+cargo install --path crates/dellij-gui
 ```
 
-This guide assumes that command succeeds.
+Add to `~/.config/zellij/config.kdl`:
 
-If you are working on `dellij` itself, the repository also contains:
+```kdl
+plugins {
+  dellij-status location="file:~/.config/zellij/plugins/dellij_status.wasm" {
+    config_dir "/absolute/path/to/project/.dellij"
+  }
+}
+load_plugins {
+  dellij-status
+}
+```
 
-- the `dellij` launcher script
-- the Bun source entrypoint
-- `mise` tasks for development
+---
 
-## First Run
-
-Run `dellij` from the root of the repository you want to manage:
+## First run
 
 ```bash
-dellij doctor
-dellij
+cd ~/your-project
+dellij init
 ```
 
-On first run, `dellij` creates:
+Creates:
 
-- `.dellij/dellij.config.json`
-- `.dellij/status/`
-- `.dellij/hooks/`
-- `.dellij/worktrees/`
-
-It also creates or attaches to a Zellij session named from your project path.
-
-## Basic Workflow
-
-### 1. Open the control session
-
-From the project you want to work on:
+```
+.dellij/
+├── dellij.json       # config: settings, bookmarks, workspaces
+├── hooks/            # lifecycle scripts
+├── layouts/          # generated KDL files (one per workspace)
+├── status/           # JSON snapshots read by the plugin
+└── workspaces/       # git worktrees land here by default
+```
 
 ```bash
-dellij
+dellij open           # creates or attaches to the project Zellij session
 ```
 
-### 2. Create an agent tab
+---
 
-Inside the project session:
+## Creating workspaces
+
+### Basic
 
 ```bash
-dellij new "add pagination to the admin API"
+dellij new "add OAuth2 login flow" --agent claude-code --open
 ```
 
-You can pick a specific agent:
+- creates `.dellij/workspaces/add-oauth2-login-flow-claude-code`
+- creates branch `dellij/add-oauth2-login-flow-claude-code` off `main`
+- opens a Zellij tab with 3 panes (agent, shell, git status)
+- writes `.dellij/status/add-oauth2-login-flow-claude-code.json`
+
+### With ports and URLs
 
 ```bash
-dellij new "fix the flaky auth test" --agent codex
+dellij new "build admin dashboard" --agent codex \
+  --port 3000 --port 5173 \
+  --url http://localhost:3000/admin \
+  --open
 ```
 
-What happens:
+Ports and URLs are stored in the workspace and shown in `list` and the GUI sidebar.
 
-- a git worktree is created
-- a branch is created using the generated slug
-- the tab is added to `.dellij/dellij.config.json`
-- a Zellij tab opens for that agent
-
-### 3. List tracked tabs
+### From an existing branch
 
 ```bash
-dellij list
+dellij new "review the payment refactor" \
+  --use-branch feat/payment-refactor \
+  --agent claude-code --open
 ```
 
-This prints the tabs currently tracked in the config.
+Skips branch creation, attaches the worktree to the existing branch.
 
-### Health check
+### From a GitHub PR
 
 ```bash
-dellij doctor
+dellij new "review PR 247" --base-pr 247 --agent claude-code --open
 ```
 
-This checks:
+Uses `gh pr view 247` to get the branch, creates the worktree from it, and stores the PR number.
 
-- whether `dellij`, `bun`, `git`, and `zellij` are on `PATH`
-- whether you are in a git repo and at the project root
-- whether `.dellij` state exists yet
-- whether the local status plugin is usable
-- whether enabled agent CLIs are available
-
-### 4. Merge a finished worktree
+### With a non-default layout
 
 ```bash
-dellij merge my-agent-slug
+dellij new "quick fix" --agent codex --layout minimal --open     # 2 panes
+dellij new "big refactor" --agent claude-code --layout full --open  # 4 panes
+dellij new "deploy run" --agent codex --layout agent-only --open  # 1 pane
 ```
 
-If the merge succeeds, the tab status is updated to `done`.
-
-### 5. Remove a tab from the config
+### With setup hook
 
 ```bash
-dellij close my-agent-slug
+dellij new "seed the database" --agent codex --setup --open
 ```
 
-This removes the tab from the config. It does not automatically merge code for you.
+Runs `.dellij/hooks/workspace_setup` after creating the worktree.
 
-## Where to Run Commands
+---
 
-Use this rule:
-
-- run plain `dellij` from a normal shell when you want to create or attach to the project session
-- run `dellij new`, `dellij list`, `dellij merge`, and `dellij close` from inside the project session when managing tabs
-
-If you launch `mise run dev` a second time, it now reattaches with mirrored-session settings and suppresses Zellij release-note popups, which avoids the odd split-client behavior that was previously happening.
-
-## Config
-
-The project config lives at:
-
-```text
-.dellij/dellij.config.json
-```
-
-Important settings:
-
-- `defaultAgent`
-- `enabledAgents`
-- `permissionMode`
-- `baseBranch`
-- `branchPrefix`
-
-Default values are created automatically. Environment variables can override them:
-
-- `DELLIJ_DEFAULT_AGENT`
-- `DELLIJ_ENABLED_AGENTS`
-- `DELLIJ_BASE_BRANCH`
-- `DELLIJ_BRANCH_PREFIX`
-- `DELLIJ_PERMISSION_MODE`
-
-Example:
+## Opening workspaces
 
 ```bash
-export DELLIJ_DEFAULT_AGENT=codex
-export DELLIJ_ENABLED_AGENTS=codex,claude,opencode
-export DELLIJ_PERMISSION_MODE=acceptEdits
+dellij open                          # open/attach the project session
+dellij open add-oauth2-login-flow-claude-code  # focus existing tab, or create it
 ```
+
+If the plugin is running, `open` sends a pipe command that focuses the matching tab
+**without creating a duplicate** — this is the tab-dedup feature.
+
+If you're not inside Zellij yet, dellij starts the session and creates the tab.
+
+---
+
+## Workspace status
+
+Six states: `working` · `waiting` · `blocked` · `review` · `done` · `error`
+
+```bash
+dellij status add-oauth2-login-flow-claude-code review \
+  --note "auth flow complete, needs security review"
+
+dellij status add-oauth2-login-flow-claude-code done
+dellij status add-oauth2-login-flow-claude-code error \
+  --note "test suite failing on CI"
+```
+
+`blocked`, `error`, and `review` light up attention indicators in the plugin ribbon and the GUI.
+
+---
+
+## Layouts
+
+| Name | Panes | Best for |
+|---|---|---|
+| `default` | 3: agent · shell · git status | daily use |
+| `minimal` | 2: agent · shell | simple tasks |
+| `full` | 4: agent · shell · git diff · ports | complex tasks |
+| `agent-only` | 1: agent | background jobs |
+
+### Custom layouts
+
+Add to `.dellij/dellij.json` under `settings.layouts`:
+
+```json
+{
+  "settings": {
+    "layouts": {
+      "server": "layout {\n  pane split_direction=\"vertical\" {\n    pane command=\"bash\" cwd=\"{cwd}\" { args \"-lc\" \"{agent_cmd}\" }\n    pane command=\"bash\" cwd=\"{cwd}\" { args \"-lc\" \"cargo run\" }\n  }\n}\n"
+    }
+  }
+}
+```
+
+Available placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{cwd}` | absolute worktree path |
+| `{agent_cmd}` | shell-escaped agent launch command |
+| `{slug}` | workspace slug |
+| `{branch}` | full branch name |
+| `{base_branch}` | base branch |
+| `{prompt}` | shell-escaped original prompt |
+
+---
+
+## Bookmarks and run
+
+Bookmarks are reusable commands, resolved by name in `dellij run`.
+
+```bash
+# Save
+dellij bookmark add test "cargo test -q" --description "quick test pass"
+dellij bookmark add lint "cargo clippy -- -D warnings"
+dellij bookmark add dev  "cargo run -- --dev"
+dellij bookmark list
+
+# Run in a workspace
+dellij run add-oauth2-login-flow-claude-code test
+dellij run add-oauth2-login-flow-claude-code test --floating      # floating pane
+dellij run add-oauth2-login-flow-claude-code test --close-on-exit # pane closes on exit
+
+# Or pass a raw command directly
+dellij run add-oauth2-login-flow-claude-code "cargo build --release"
+```
+
+If run inside Zellij, the command opens in a new pane in the workspace's working directory.
+If run outside Zellij, it runs directly in the shell.
+
+---
+
+## Sending text to panes
+
+With the plugin running, you can write directly to a workspace's shell pane:
+
+```bash
+dellij send add-oauth2-login-flow-claude-code "cargo test\n"
+dellij send add-oauth2-login-flow-claude-code "git diff HEAD~1\n"
+```
+
+This uses `zellij pipe` → plugin → `write_chars()`. The plugin focuses the workspace tab
+first, then writes the text.
+
+---
+
+## GitHub PR integration
+
+```bash
+# Associate a PR with an existing workspace
+dellij pr set add-oauth2-login-flow-claude-code 247
+
+# Open the PR in the browser
+dellij pr open add-oauth2-login-flow-claude-code
+
+# Show PR status (runs gh pr view)
+dellij pr status add-oauth2-login-flow-claude-code
+```
+
+PR numbers appear in `dellij list`, the plugin ribbon (if short), and the GUI sidebar.
+
+---
 
 ## Hooks
 
-`dellij` looks for executable hooks in this order:
+Executables in `.dellij/hooks/` run at lifecycle events.
 
-1. `.dellij-hooks/`
-2. `.dellij/hooks/`
-3. `~/.dellij/hooks/`
+| Hook | When |
+|---|---|
+| `workspace_setup` | `dellij new --setup` or `dellij open --setup` |
+| `workspace_teardown` | `dellij close --teardown` |
 
-Available hook names:
-
-- `before_pane_create`
-- `pane_created`
-- `worktree_created`
-- `before_pane_close`
-- `pane_closed`
-- `pre_merge`
-- `post_merge`
-- `run_test`
-- `run_dev`
-
-Simple example:
+Example setup hook:
 
 ```bash
-mkdir -p .dellij/hooks
-cat > .dellij/hooks/worktree_created <<'EOF'
 #!/usr/bin/env bash
-echo "Created worktree: $DELLIJ_WORKTREE_PATH"
-EOF
-chmod +x .dellij/hooks/worktree_created
+set -euo pipefail
+
+echo "Setting up $DELLIJ_SLUG"
+cd "$DELLIJ_WORKTREE_PATH"
+
+# Install deps
+npm ci
+
+# Copy dev env
+cp "$DELLIJ_ROOT/.env.example" .env
+
+# Seed database
+npm run db:seed
+
+echo "Ready at $DELLIJ_WORKTREE_PATH"
 ```
 
-## Development Commands
-
-Inside the `dellij` repo:
-
-- `mise run dev` starts the app
-- `mise run ui` runs the TUI pane directly
-- `mise run build:plugin` rebuilds the plugin
-- `mise run typecheck` runs TypeScript checks
-- `mise run release` runs the release checks
-
-## Troubleshooting
-
-### The second `mise run dev` behaves strangely
-
-The session attach flow now uses mirrored-session options and disables Zellij release notes and startup tips on attach. If you still hit an old broken session, close it and start again:
+Example teardown hook:
 
 ```bash
-zellij kill-session <session-name>
-mise run dev
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Stop dev server if running on the workspace's port
+fuser -k 3000/tcp 2>/dev/null || true
+
+# Clean up containers
+docker compose -f "$DELLIJ_WORKTREE_PATH/docker-compose.yml" down 2>/dev/null || true
 ```
 
-### The status plugin does not appear
+---
 
-`dellij` now skips plugin builds that Zellij cannot load. On this machine, the local log showed the plugin wasm was missing the `_start` export that the packaged Zellij runtime expects.
+## Agent hook snippets
 
-That means:
+Run `dellij doctor` to print copy-paste snippets. Full versions:
 
-- the main workflow still works
-- the status ribbon may be omitted
-- you can still manage sessions, worktrees, and agent tabs normally
+### Claude Code
 
-### I ran `dellij new ...` outside Zellij
+`~/.claude/settings.json`:
 
-That still creates the worktree and updates the config, but it cannot open a new agent tab until you attach to the session.
+```json
+{
+  "hooks": {
+    "Notification": [{
+      "matcher": "",
+      "hooks": [{"type": "command",
+        "command": "dellij status $DELLIJ_SLUG waiting 2>/dev/null || true"
+      }]
+    }],
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{"type": "command",
+        "command": "dellij status $DELLIJ_SLUG done 2>/dev/null || true"
+      }]
+    }],
+    "SubagentStop": [{
+      "matcher": "",
+      "hooks": [{"type": "command",
+        "command": "dellij status $DELLIJ_SLUG working 2>/dev/null || true"
+      }]
+    }]
+  }
+}
+```
 
-### I want to inspect the project state
+### OpenAI Codex
 
-Check:
+`~/.codex/config.toml`:
 
-- `.dellij/dellij.config.json`
-- `.dellij/worktrees/`
-- `.dellij/status/`
+```toml
+notify = ["bash", "-c",
+  "dellij status ${DELLIJ_SLUG:-unknown} waiting 2>/dev/null || true"]
+```
 
-## Recommended Daily Flow
+### OpenCode
+
+`.opencode/plugins/dellij-notify.js`:
+
+```javascript
+export const DellijNotifyPlugin = async ({ $ }) => ({
+  event: async ({ event }) => {
+    const slug = process.env.DELLIJ_SLUG;
+    if (!slug) return;
+    if (event.type === "session.idle")
+      await $`dellij status ${slug} waiting`.catch(() => {});
+    if (event.type === "session.done")
+      await $`dellij status ${slug} done`.catch(() => {});
+  },
+});
+```
+
+---
+
+## Environment variables
+
+Every pane in every workspace has these automatically:
+
+| Variable | Example value |
+|---|---|
+| `DELLIJ_SLUG` | `fix-jwt-auth-claude-code` |
+| `DELLIJ_AGENT` | `claude-code` |
+| `DELLIJ_BRANCH` | `dellij/fix-jwt-auth-claude-code` |
+| `DELLIJ_BASE_BRANCH` | `main` |
+| `DELLIJ_WORKTREE_PATH` | `/home/you/project/.dellij/workspaces/fix-jwt-auth-claude-code` |
+| `DELLIJ_ROOT` | `/home/you/project` |
+| `DELLIJ_PROMPT` | `fix the JWT auth vulnerability` |
+
+Hooks also receive all of the above.
+
+---
+
+## Importing existing worktrees
+
+If you already have a worktree you didn't create with dellij:
 
 ```bash
-cd /your/project
-dellij
-dellij new "first task" --agent codex
-dellij new "second task" --agent claude
-dellij list
-dellij merge first-task-codex
-dellij close first-task-codex
+dellij import ../my-existing-worktree
+dellij import ../my-existing-worktree --name "my custom name" --agent claude-code
+dellij import ../my-existing-worktree --prompt "fix the thing" --port 4000
 ```
 
-That is the core `dellij` loop.
+dellij detects the branch from the worktree, creates the metadata, writes the layout
+and status files, and adds it to `.dellij/dellij.json`.
+
+---
+
+## The Zellij plugin
+
+The WASM plugin does three things:
+
+**1. Status ribbon** — shows all tracked workspaces with coloured status dots.
+Tab that needs attention gets a `!` prefix.
+
+```
+ dellij cc ⬤ working  cx ◯ waiting  !ai ⊘ blocked
+```
+
+Color coding:
+- `⬤` yellow = working
+- `◯` cyan = waiting
+- `⊘` red = blocked
+- `✗` red = error
+- `◈` blue = review
+- `✓` green = done
+
+**2. Tab dedup** — when `dellij open <slug>` is called from inside Zellij, the CLI
+sends `{"action":"open","slug":"..."}` over `zellij pipe`. The plugin checks if a tab
+named `<slug>` already exists: if yes, it calls `go_to_tab`; if no, it reads
+`.dellij/layouts/<slug>.kdl` and calls `new_tabs_with_layout`.
+
+**3. Send to pane** — `dellij send <slug> <text>` pipes `{"action":"send",...}` to the
+plugin, which focuses the workspace tab then calls `write_chars`.
+
+Configuration (`config.kdl`):
+
+```kdl
+plugins {
+  dellij-status location="file:~/.config/zellij/plugins/dellij_status.wasm" {
+    config_dir "/absolute/path/to/your/project/.dellij"
+  }
+}
+```
+
+---
+
+## The desktop GUI
+
+```bash
+dellij ui
+```
+
+Launches `dellij-gui`, a GPUI desktop app. It watches `.dellij/status/` live.
+
+**Sidebar** — all workspaces with status dot, agent pill, branch, ahead/behind,
+ports, PR number. Click to select. Buttons to open in VS Code, Cursor, Zed, or browser.
+
+**Diff tab** — two-column line-number diff view of `git diff <base>...<branch>` for the
+selected workspace. Stats banner shows file count, insertions, deletions.
+
+**Alerts tab** — notification cards for every workspace with `blocked`, `error`, or
+`review` status. Each card shows status, agent, branch, PR, and latest note.
+
+**Browser tab** — click a port or URL on any workspace row to spawn a wry WebView
+window with `window.dellij.{snapshot,click,fill,eval}` injected.
+
+---
+
+## IDE deep-linking
+
+```bash
+dellij edit <slug>                    # opens in $EDITOR
+dellij edit <slug> --editor cursor    # specific editor
+dellij edit <slug> --editor code
+dellij edit <slug> --editor zed
+dellij edit <slug> --editor idea
+```
+
+Also available via the GUI sidebar — click **VS Code**, **Cursor**, or **Zed** buttons
+on the selected workspace row.
+
+---
+
+## Diagnostics
+
+```bash
+dellij doctor
+```
+
+Prints:
+
+```
+project_root    : /home/you/myproject
+session         : dellij-home-you-myproject-session
+git             : ok
+zellij          : ok
+gh (GitHub CLI) : ok
+dellij-gui      : ok
+hooks_dir       : ok
+workspace_count : 4
+bookmark_count  : 3
+
+── Claude Code hooks (~/.claude/settings.json) ──────────────
+{ ... copy-paste ready ... }
+
+── OpenAI Codex (~/.codex/config.toml) ─────────────────────
+...
+
+── OpenCode plugin (.opencode/plugins/dellij-notify.js) ─────
+...
+```
+
+---
+
+## Configuration reference
+
+`.dellij/dellij.json` (auto-created, hand-editable):
+
+```json
+{
+  "project_root": "/home/you/myproject",
+  "created_at": "2025-03-01T10:00:00Z",
+  "settings": {
+    "default_agent": "claude-code",
+    "base_branch": "main",
+    "branch_prefix": "dellij/",
+    "workspace_root": ".dellij/workspaces",
+    "layouts": {}
+  },
+  "bookmarks": [
+    { "name": "test", "command": "cargo test -q", "description": "quick test" }
+  ],
+  "workspaces": [...]
+}
+```
+
+`branch_prefix` — prefix added to every created branch. Set to `""` to use the slug directly.
+
+`workspace_root` — relative path from project root where worktrees are created.
+Can be outside the project: `"../dellij-workspaces"` keeps the repo clean.
+
+`default_agent` — used when `--agent` is not passed to `dellij new`.

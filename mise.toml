@@ -1,92 +1,28 @@
 [tools]
-bun = "latest"
 rust = "stable"
 "go:github.com/charmbracelet/vhs" = "0.11.0"
 
 [tasks."setup"]
-description = "Install all dependencies"
-run = "bun install"
+description = "Fetch Rust dependencies"
+run = "cargo fetch"
+
+[tasks."build"]
+description = "Build the Rust workspace"
+depends = ["setup"]
+run = "cargo build --workspace"
 
 [tasks."build:plugin"]
 description = "Build the Zellij WASM plugin"
-run = "cd plugin && ./build.sh"
-
-[tasks."build"]
-description = "Build everything"
-depends = ["setup", "build:plugin"]
+run = "cargo build -p dellij-status --release --target wasm32-wasip1"
 
 [tasks."dev"]
-description = "Start dellij in development mode"
-run = "bun run src/index.ts"
-
-[tasks."ui"]
-description = "Start the TUI in isolation for testing"
-run = "bun run src/index.ts --ui"
-
-[tasks."typecheck"]
-description = "Run TypeScript type checking"
-run = "bun tsc --noEmit"
+description = "Run the Rust CLI from source"
+run = "cargo run -p dellij -- list"
 
 [tasks."record"]
 description = "Record all VHS demo GIFs"
-# Using heredocs for cleaner JSON handling in the recording setup
-run = """
-#!/usr/bin/env bash
-set -e
-
-# Setup main demo
-mkdir -p /tmp/dellij-demo/.dellij/status
-cat << 'EOF' > /tmp/dellij-demo/.dellij/dellij.config.json
-{
-  "projectName": "demo",
-  "projectRoot": "/tmp/dellij-demo",
-  "tabs": [],
-  "settings": { "enabledAgents": ["claude"] }
-}
-EOF
-vhs vhs/demo.tape
-
-# Setup hooks demo
-mkdir -p /tmp/dellij-hooks-demo/.dellij/hooks
-echo '#!/usr/bin/env bash\necho "HOOK TRIGGERED"' > /tmp/dellij-hooks-demo/.dellij/hooks/worktree_created
-chmod +x /tmp/dellij-hooks-demo/.dellij/hooks/worktree_created
-cat << 'EOF' > /tmp/dellij-hooks-demo/.dellij/dellij.config.json
-{
-  "projectName": "hooks-demo",
-  "projectRoot": "/tmp/dellij-hooks-demo",
-  "tabs": [],
-  "settings": { "enabledAgents": ["claude"] }
-}
-EOF
-vhs vhs/hooks.tape
-
-# Setup merge demo
-mkdir -p /tmp/dellij-merge-demo/.dellij/status
-cat << 'EOF' > /tmp/dellij-merge-demo/.dellij/dellij.config.json
-{
-  "projectName": "merge-demo",
-  "projectRoot": "/tmp/dellij-merge-demo",
-  "tabs": [
-    {
-      "id": "1",
-      "slug": "fix-bug",
-      "type": "agent",
-      "agent": "claude",
-      "agentStatus": "done",
-      "worktreePath": "/tmp/dellij-merge-demo/worktrees/fix-bug",
-      "branchName": "fix-bug"
-    }
-  ],
-  "settings": { "enabledAgents": ["claude"] }
-}
-EOF
-mkdir -p /tmp/dellij-merge-demo/worktrees/fix-bug
-vhs vhs/merge.tape
-
-# Cleanup
-rm -rf /tmp/dellij-demo /tmp/dellij-hooks-demo /tmp/dellij-merge-demo
-"""
+run = "vhs vhs/demo.tape && vhs vhs/hooks.tape && vhs vhs/merge.tape"
 
 [tasks."release"]
-description = "Build and typecheck everything before release"
-depends = ["build", "typecheck"]
+description = "Build and check the Rust workspace before release"
+run = "cargo check --workspace && cargo build --workspace --release"

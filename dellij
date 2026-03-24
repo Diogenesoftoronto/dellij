@@ -1,2 +1,4 @@
-#!/usr/bin/env bun
-import('./src/index.ts');
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec cargo run -q -p dellij -- "$@"

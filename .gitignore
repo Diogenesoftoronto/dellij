@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .dellij/
+target/
 plugin/target/
 .DS_Store
 *.tmp
